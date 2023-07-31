@@ -36,13 +36,13 @@ use Spatie\Async;
 use Spatie\Async\Pool;
 
 // function for creating prompt messages
-function generate_message($keyword, $bahasa)
+function generate_message($keyword, $bahasa, $paragraf)
 {
     $message = [
-        ['role' => 'system', 'content' => 'Kamu adalah seorang penulis yang hanya berbicara JSON. Jangan pernah bicara bahasa normal dan jangan menuliskan apapun diluar kurung kurawal.'],
-        ['role' => 'system', 'content' => 'Format JSON yang dipakai: { "Title": "", "Meta": "", "Content": "" }'],
-        ['role' => 'user', 'content' => 'buatkan saya artikel dengan berisikan judul, meta, konten yang unik dengan kata kunci ' . $keyword . '. Dan menggunakan bahasa: ' . $bahasa . '.'],
-        // ['role' => 'user', 'content' => 'hasilnya buatkan kedalam bentuk paragraf dengan format json yang telah diberikan, minimal kalimat per 1 paragraf adalah 5, total paragraf adalah 5.'],
+        ['role' => 'system', 'content' => 'Do not include any explanations, only provide a  RFC8259 compliant JSON response, without Duplicate object key, following this format without deviation.'],
+        ['role' => 'system', 'content' => 'JSON format used: { "Title": " ", "Meta": " ", "Content": " " }'],
+        ['role' => 'user', 'content' => 'Kamu adalah seorang penulis yang membantu membuat sebuah konten artikel'],
+        ['role' => 'user', 'content' => 'Buatlah artikel dengan rincian yang komprehensif,' . $paragraf . ' paragraf, 1 paragraf mengandung 6 kalimat. Dengan berisikan judul, meta, dan konten yang unik dengan kata kunci ' . $keyword . '. Dan menggunakan bahasa: ' . $bahasa],
     ];
 
     return $message;
@@ -50,7 +50,7 @@ function generate_message($keyword, $bahasa)
 
 
 // Define the function that generates content using the ChatGPT API
-function generate_content($keyword, $bahasa)
+function generate_content($keyword, $bahasa, $paragraf)
 {
     try {
         // get api key from wp db
@@ -60,7 +60,7 @@ function generate_content($keyword, $bahasa)
         $client = OpenAI::client($yourApiKey);
 
         // Prepare the chat messages
-        $messages = generate_message($keyword, $bahasa);
+        $messages = generate_message($keyword, $bahasa, $paragraf);
 
         // choose AI Models
         $model_field_value = get_option('SMT_GeCo_AI_setting_model', 'gpt-3.5-turbo');
@@ -74,8 +74,8 @@ function generate_content($keyword, $bahasa)
                 $response = $client->chat()->create([
                     'model' => $model_field_value,
                     'messages' => $messages,
-                    'temperature' => 0.8,
-                    'max_tokens' => 3500
+                    'temperature' => 1.2,
+                    'max_tokens' => 3000
                 ]);
 
                 return $response;
@@ -92,17 +92,26 @@ function generate_content($keyword, $bahasa)
             });
         $pool->wait();
 
+        // echo '<script>console.log(' . $response->usage->total_tokens . ');</script>';
+        // echo '<script>console.log(' . $response->choices[0]->finish_reason . ');</script>';
+
         // Extract the response content from the API response
         $hasil = $response->choices[0]->message->content;
-        $res = json_decode($hasil);
+        $decoded_response = json_decode($hasil);
+        
+        $path_to_plugin = "../wp-content/plugins/SMT-GeCoAI/log/";
+        $myfile = fopen($path_to_plugin . "response.json", "w") or die("Unable to open file!");
+        $txt = $hasil;
+        fwrite($myfile, $txt);
+        fclose($myfile);
 
         // handle error when the json response didn't match the schema
-        if (!$res) {
+        if (!$hasil) {
             $actual_link = (empty($_SERVER['HTTPS']) ? 'http' : 'https') . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
-            wp_die('Error: Response is not json please refresh again this <a href="'. $actual_link .'">page</a>', 'err_json');
+            wp_die('Something Went Wrong, Please Refresh This Page Again. <a href="'. $actual_link .'">Refresh</a>', 'err_json');
         }
-
-        return $res;
+        
+        return $decoded_response;
     } catch (Exception $e) {
         // Handle exceptions here or log the error for debugging
         wp_die("Error: Unable to generate content. Please try again later. Error message: <b> " . $e->getMessage() . "</b>", 'chatgpt err');
@@ -137,17 +146,14 @@ function make_post()
         // Check if the 'keyword' parameter and api key is exists
         if (isset($params['keyword'])) {
 
-            add_action('admin_notices', function () {
-                echo '<div class="notice notice-info is-dismissible">
-                    <p>
-                        Creating your post, wait for a moment...
-                    </p>
-                </div>';
-            });
-
             // check if bahasa parameter is exist or not, if not set lang default value to inggris
             if (!isset($params['bahasa'])) {
                 $params['bahasa'] = "Indonesia";
+            }
+
+            // check if paragraf parameter is exist or not, if not set paragraf default value to empty string
+            if (!isset($params['paragraf'])) {
+                $params['paragraf'] = " ";
             }
 
             if (!get_option('SMT_GeCo_AI_setting_api_key')) {
@@ -159,8 +165,9 @@ function make_post()
             }
 
             // create content
-            $generated_content = generate_content($params['keyword'], $params['bahasa']);
+            $generated_content = generate_content($params['keyword'], $params['bahasa'], $params['paragraf']);
 
+            // insert data to array
             $post_data = array(
                 'post_title'   => $generated_content->Title,
                 'post_content' => $generated_content->Content,
@@ -169,8 +176,10 @@ function make_post()
                 'post_type'    => 'post', // 'post', 'page', or any custom post type you have
             );
 
+            // submit data to wp_insert_post 
             $post_id = wp_insert_post($post_data);
 
+            // create notification after data is success insert
             if ($post_id) {
                 $post_permalink = get_permalink($post_id);
                 $notice = "Post created successfully. <a href='{$post_permalink}'>Go to post.</a>";
@@ -311,73 +320,9 @@ function SMT_GeCo_AI_settings_field_model_callback()
     </label>
     <p>Select AI model to be use. <a href="https://platform.openai.com/docs/models/overview">Learn more.</a></p>
 
-    <?php
-
-}
-
-function hook_javascript()
-{
-    $actual_link = (empty($_SERVER['HTTPS']) ? 'http' : 'https') . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
-    $url_components = parse_url($actual_link);
-
-    if (isset($url_components['query'])) {
-        parse_str($url_components['query'], $params);
-
-        if (isset($params['keyword'])) {
-    ?>
-            <script>
-                alert('Page is loading...');
-            </script>
 <?php
-        }
-    }
+
 }
-
-function add_custom_element()
-{
-    // Output the HTML for your custom element.
-    // echo '<div id="custom-element" style="display: none;">This is the custom element!</div>';
-    echo '<div class="wrapper" id="custom-element" style="display: none;">
-            <div class="loader-box">
-            <div class="loader">
-                
-            </div>
-            <div class="loader-text">
-                Loading...
-            </div>
-            </div>
-    
-            <div class="description-box">
-            This is a simple lightweight loading spinner
-            </div>
-        </div>';
-}
-add_action('wp_footer', 'add_custom_element');
-
-function enqueue_custom_plugin_script()
-{
-    $script_handle = 'custom-script';
-
-    $script_url = plugin_dir_url(__FILE__) . 'js/custom-script.js';
-
-    wp_enqueue_script($script_handle, $script_url, array(), '1.0', true);
-}
-add_action('admin_enqueue_scripts', 'enqueue_custom_plugin_script');
-
-function enqueue_custom_style()
-{
-    // Replace 'custom-style' with a unique name for your CSS style.
-    // This handle will be used to refer to your style throughout WordPress.
-    $style_handle = 'custom-style';
-
-    // Get the URL to your custom CSS file.
-    $style_url = plugin_dir_url(__FILE__) . 'css/custom-style.css';
-
-    // Enqueue the style on the frontend.
-    wp_enqueue_style($style_handle, $style_url, array(), '1.0', 1);
-}
-add_action('admin_enqueue_scripts', 'enqueue_custom_style');
-
 
 // run make_post function
 add_action('admin_init', 'make_post');
