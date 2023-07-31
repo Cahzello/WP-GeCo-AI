@@ -31,6 +31,7 @@
 
 // Include the Composer autoloader
 require __DIR__ . '/vendor/autoload.php';
+require 'function/generate_message.php';
 
 use Spatie\Async;
 use Spatie\Async\Pool;
@@ -98,9 +99,10 @@ function generate_content($keyword, $bahasa, $paragraf)
         // Extract the response content from the API response
         $hasil = $response->choices[0]->message->content;
         $decoded_response = json_decode($hasil);
-        
+
+        // write log file
         $path_to_plugin = "../wp-content/plugins/SMT-GeCoAI/log/";
-        $myfile = fopen($path_to_plugin . "response.json", "w") or die("Unable to open file!");
+        $myfile = fopen($path_to_plugin . "response.json", "a") or die("Unable to open file!");
         $txt = $hasil;
         fwrite($myfile, $txt);
         fclose($myfile);
@@ -108,9 +110,9 @@ function generate_content($keyword, $bahasa, $paragraf)
         // handle error when the json response didn't match the schema
         if (!$hasil) {
             $actual_link = (empty($_SERVER['HTTPS']) ? 'http' : 'https') . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
-            wp_die('Something Went Wrong, Please Refresh This Page Again. <a href="'. $actual_link .'">Refresh</a>', 'err_json');
+            wp_die('Something Went Wrong, Please Refresh This Page Again. <a href="' . $actual_link . '">Refresh</a>', 'err_json');
         }
-        
+
         return $decoded_response;
     } catch (Exception $e) {
         // Handle exceptions here or log the error for debugging
@@ -208,6 +210,7 @@ function SMT_GeCo_AI_settings_init()
     // register a new setting for the custom settings page
     register_setting('SMT_GeCo_AI_custom_settings_page', 'SMT_GeCo_AI_setting_api_key');
     register_setting('SMT_GeCo_AI_custom_settings_page', 'SMT_GeCo_AI_setting_model');
+    register_setting('SMT_GeCo_AI_custom_settings_page', 'SMT_GeCo_AI_setting_prompt');
 
     // register a new section in the custom settings page
     add_settings_section(
@@ -233,6 +236,14 @@ function SMT_GeCo_AI_settings_init()
         'SMT_GeCo_AI_custom_settings_page',
         'SMT_GeCo_AI_settings_section'
     );
+
+    add_settings_field(
+        'SMT_GeCo_AI_prompt',
+        'Custom Prompt',
+        'SMT_GeCo_AI_settings_field_prompt_callback',
+        'SMT_GeCo_AI_custom_settings_page',
+        'SMT_GeCo_AI_settings_section'
+    );
 }
 
 /**
@@ -246,7 +257,7 @@ function SMT_GeCo_AI_add_custom_settings_page()
         'manage_options', // You can change the capability required to access this page
         'SMT_GeCo_AI_custom_settings_page', // Change this to a unique menu slug for your settings page
         'SMT_GeCo_AI_custom_settings_page_callback',
-        'dashicons-admin-generic', // Replace with your desired menu icon
+        'dashicons-format-aside', // Replace with your desired menu icon
     );
 }
 
@@ -321,7 +332,16 @@ function SMT_GeCo_AI_settings_field_model_callback()
     <p>Select AI model to be use. <a href="https://platform.openai.com/docs/models/overview">Learn more.</a></p>
 
 <?php
+}
 
+function SMT_GeCo_AI_settings_field_prompt_callback()
+{
+    $prompt = get_option('SMT_GeCo_AI_setting_prompt');
+?>
+    <textarea cols="60" type="text" name="SMT_GeCo_AI_setting_prompt"><?php echo isset($prompt) ? esc_attr($prompt) : ''; ?>
+    </textarea>
+    <p>Optional input if you want a unique case for prompt.</p>
+<?php
 }
 
 // run make_post function
