@@ -49,23 +49,53 @@ function generate_message($keyword, $bahasa, $paragraf)
     return $message;
 }
 
+function generate_image($img)
+{
+    // get api key from wp db
+    $yourApiKey = get_option('SMT_GeCo_AI_setting_api_key');
+
+    // Initialize the OpenAI client and set the API key
+    $client = OpenAI::client($yourApiKey);
+
+    // operate the task
+    if (isset($img)) {
+        try {
+            $img_response = $client->images()->create([
+                'prompt' => $img,
+                'n' => 1,
+                'size' => '256x256',
+                'response_format' => 'url',
+            ]);
+        } catch (Throwable $th) {
+            // throw $th;
+            add_action('admin_notices', function () use ($th) {
+                echo "<div class='notice notice-info is-dismissible'><p> {$th} </p></div>";
+            });
+        }
+
+        $image = $img_response->data[0]->url;
+
+        return $image;
+    }
+}
+
 
 // Define the function that generates content using the ChatGPT API
 function generate_content($keyword, $bahasa, $paragraf)
 {
+    // get api key from wp db
+    $yourApiKey = get_option('SMT_GeCo_AI_setting_api_key');
+
+    // Initialize the OpenAI client and set the API key
+    $client = OpenAI::client($yourApiKey);
+
+    // Prepare the chat messages
+    $messages = generate_message($keyword, $bahasa, $paragraf);
+
+    // choose AI Models
+    $model_field_value = get_option('SMT_GeCo_AI_setting_model', 'gpt-3.5-turbo');
+
     try {
-        // get api key from wp db
-        $yourApiKey = get_option('SMT_GeCo_AI_setting_api_key');
-
-        // Initialize the OpenAI client and set the API key
-        $client = OpenAI::client($yourApiKey);
-
-        // Prepare the chat messages
-        $messages = generate_message($keyword, $bahasa, $paragraf);
-
-        // choose AI Models
-        $model_field_value = get_option('SMT_GeCo_AI_setting_model', 'gpt-3.5-turbo');
-
         // create async call
         $pool = Pool::create();
 
@@ -87,14 +117,12 @@ function generate_content($keyword, $bahasa, $paragraf)
             })
             ->catch(function ($exception) {
                 // When an exception is thrown from within a process, it's caught and passed here.
+                // wp_die('Error Generating Response ' . $exception, 'Error');
                 add_action('admin_notices', function () use ($exception) {
-                    wp_die('Error Generating Response ' . $exception, 'Error');
+                    echo "<div class='notice notice-info is-dismissible'><p> {$exception} </p></div>";
                 });
             });
         $pool->wait();
-
-        // echo '<script>console.log(' . $response->usage->total_tokens . ');</script>';
-        // echo '<script>console.log(' . $response->choices[0]->finish_reason . ');</script>';
 
         // Extract the response content from the API response
         $hasil = $response->choices[0]->message->content;
@@ -113,12 +141,13 @@ function generate_content($keyword, $bahasa, $paragraf)
             $actual_link = (empty($_SERVER['HTTPS']) ? 'http' : 'https') . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
             wp_die('Something Went Wrong, Please Refresh This Page Again. <a href="' . $actual_link . '">Refresh</a>', 'err_json');
         }
-
-        return $decoded_response;
     } catch (Exception $e) {
         // Handle exceptions here or log the error for debugging
         wp_die("Error: Unable to generate content. Please try again later. Error message: <b> " . $e->getMessage() . "</b>", 'chatgpt err');
     }
+
+    //return value
+    return $decoded_response;
 }
 
 function make_post()
@@ -159,6 +188,10 @@ function make_post()
                 $params['paragraf'] = " ";
             }
 
+            if (!isset($params['img'])) {
+                $params['img'] = null;
+            }
+
             if (!get_option('SMT_GeCo_AI_setting_api_key')) {
                 $url = get_dashboard_url() . 'admin.php?page=SMT_GeCo_AI_custom_settings_page';
                 wp_die(
@@ -170,17 +203,24 @@ function make_post()
             // create content
             $generated_content = generate_content($params['keyword'], $params['bahasa'], $params['paragraf']);
 
+            $image = generate_image($params['img']);
+            $image_structure = "<img class='alignleft' src='" . $image . "' /> ";
+
             // insert data to array
             $post_data = array(
                 'post_title'   => $generated_content->Title,
-                'post_content' => $generated_content->Content,
+                'post_content' => $image_structure . $generated_content->Content,
                 'post_status'  => 'draft', // 'publish', 'draft', 'pending', etc.
                 'post_author'  => is_user_logged_in() ? get_current_user_id() : 0,
                 'post_type'    => 'post', // 'post', 'page', or any custom post type you have
             );
 
-            // submit data to wp_insert_post 
-            $post_id = wp_insert_post($post_data);
+            // check if the content and image is good
+            if($generated_content->Title || $image_structure){
+
+                // submit data to wp_insert_post 
+                $post_id = wp_insert_post($post_data);
+            }
 
             // create notification after data is success insert
             if ($post_id) {
@@ -193,7 +233,7 @@ function make_post()
                 // An error occurred while creating the post
                 // echo "Error creating the post.";
                 add_action('admin_notices', function () {
-                    echo '<div class="notice notice-info is-dismissible"><p> error </p></div>';
+                    echo '<div class="notice notice-info is-dismissible"><p> Something went wrong : ( </p></div>';
                 });
             }
         } else {
