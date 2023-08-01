@@ -1,3 +1,8 @@
+# .gitignore
 .env
 vendor
 log/*
+
+# Ignore content inside user_data folder
+log/*
+
