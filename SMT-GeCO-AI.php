@@ -104,6 +104,7 @@ function generate_content($keyword, $bahasa, $paragraf)
         $path_to_plugin = "../wp-content/plugins/SMT-GeCoAI/log/";
         $myfile = fopen($path_to_plugin . "response.json", "a") or die("Unable to open file!");
         $txt = $hasil;
+        fwrite($myfile, PHP_EOL);
         fwrite($myfile, $txt);
         fclose($myfile);
 
