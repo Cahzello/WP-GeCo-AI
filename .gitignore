@@ -2,6 +2,6 @@
 .env
 vendor
 
-# Ignore content inside log folder
-log/*
+# Ignore log file
+response.json
 
