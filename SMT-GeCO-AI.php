@@ -42,9 +42,24 @@ function generate_message($keyword, $bahasa, $paragraf)
     $message = [
         ['role' => 'system', 'content' => 'Do not include any explanations, only provide a  RFC8259 compliant JSON response, without Duplicate object key, following this format without deviation.'],
         ['role' => 'system', 'content' => 'JSON format used: { "Title": " ", "Meta": " ", "Content": " " }'],
-        ['role' => 'user', 'content' => 'Kamu adalah seorang penulis yang membantu membuat sebuah konten artikel'],
-        ['role' => 'user', 'content' => 'Buatlah artikel dengan rincian yang komprehensif,' . $paragraf . ' paragraf, 1 paragraf mengandung 6 kalimat. Dengan berisikan judul, meta, dan konten yang unik dengan kata kunci ' . $keyword . '. Dan menggunakan bahasa: ' . $bahasa],
+        ['role' => 'system', 'content' => 'When creating a new paragrah use "\n\n" instead inserting a new line manually'],
     ];
+
+    // add custom prompt if user input from the settings
+    if (get_option('SMT_GeCo_AI_setting_prompt')) {
+        $prompt = get_option('SMT_GeCo_AI_setting_prompt');
+
+        $output = str_replace(['[keyword]', '[bahasa]'], [$keyword, $bahasa], $prompt);
+
+        $custom_prompt = ['role' => 'user', 'content' => $output];
+
+        $message[] = $custom_prompt;
+    } else {
+
+        $custom_prompt = ['role' => 'user', 'content' => 'Buatlah artikel dengan rincian yang komprehensif,' . $paragraf . ' paragraf, 1 paragraf mengandung 6 kalimat. Dengan berisikan judul, meta, dan konten yang unik dengan kata kunci ' . $keyword . '. Dan menggunakan bahasa: ' . $bahasa];
+
+        $message[] = $custom_prompt;
+    }
 
     return $message;
 }
@@ -126,7 +141,8 @@ function generate_content($keyword, $bahasa, $paragraf)
 
         // Extract the response content from the API response
         $hasil = $response->choices[0]->message->content;
-        $decoded_response = json_decode($hasil);
+        $jsonData = preg_replace('/[\x00-\x1F]/u', '', $hasil);
+        $decodedJson = json_decode($jsonData, false, 512, JSON_THROW_ON_ERROR);
 
         // write log file
         $path_to_plugin = "../wp-content/plugins/SMT-GeCoAI/log/";
@@ -147,7 +163,7 @@ function generate_content($keyword, $bahasa, $paragraf)
     }
 
     //return value
-    return $decoded_response;
+    return $decodedJson;
 }
 
 function make_post()
@@ -185,11 +201,7 @@ function make_post()
 
             // check if paragraf parameter is exist or not, if not set paragraf default value to empty string
             if (!isset($params['paragraf'])) {
-                $params['paragraf'] = " ";
-            }
-
-            if (!isset($params['img'])) {
-                $params['img'] = null;
+                $params['paragraf'] = 2;
             }
 
             if (!get_option('SMT_GeCo_AI_setting_api_key')) {
@@ -203,7 +215,8 @@ function make_post()
             // create content
             $generated_content = generate_content($params['keyword'], $params['bahasa'], $params['paragraf']);
 
-            $image = generate_image($params['img']);
+            // create image structure to be input to the post
+            $image = generate_image($params['keyword']);
             $image_structure = "<img class='alignleft' src='" . $image . "' /> ";
 
             // insert data to array
@@ -215,8 +228,8 @@ function make_post()
                 'post_type'    => 'post', // 'post', 'page', or any custom post type you have
             );
 
-            // check if the content and image is good
-            if($generated_content->Title || $image_structure){
+            // check if the content and image is ready
+            if ($generated_content->Title && $image_structure) {
 
                 // submit data to wp_insert_post 
                 $post_id = wp_insert_post($post_data);
@@ -379,9 +392,35 @@ function SMT_GeCo_AI_settings_field_prompt_callback()
 {
     $prompt = get_option('SMT_GeCo_AI_setting_prompt');
 ?>
-    <textarea cols="60" type="text" name="SMT_GeCo_AI_setting_prompt"><?php echo isset($prompt) ? esc_attr($prompt) : ''; ?>
+    <textarea cols="65" type="text" name="SMT_GeCo_AI_setting_prompt"><?php echo isset($prompt) ? esc_attr($prompt) : ''; ?>
     </textarea>
     <p>Optional input if you want a unique case for prompt.</p>
+    <p>the parameter available for use is:</p>
+    <table border="1">
+        <tr>
+            <td><b>Paramater</b></td>
+            <td><b>Fungtionality</b></td>
+        </tr>
+        <tr>
+            <td>[keyword]</td>
+            <td>What keyword to use <b>(Required)</b></td>
+        </tr>
+        <tr>
+            <td>[bahasa]</td>
+            <td>What language to use (optional, default value indonesian)</td>
+        </tr>
+        <tr>
+            <td>[paragraf]</td>
+            <td>How much paragraf to be added in article (optional, default value 2)</td>
+        </tr>
+    </table>
+    <p>Example:</p>
+    <p>"Buatkanlah saya artikel menggunakan bahasa [bahasa] dan artikelnya mengenai [keyword]. Dengan panjang paragraf [paragraf]"</p>
+    <p>Note:</p>
+    <p><b>Insert parameter without the value in parameter, so if you want use "[bahasa]" just put "[bahasa]".</b></p>
+    <p>For the value in parameter will be inputed in address bar</p>
+    <p>Example: ?keyword=Jakarta & bahasa=inggris & paragraf=5</p>
+
 <?php
 }
 
