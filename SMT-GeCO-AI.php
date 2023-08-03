@@ -72,13 +72,15 @@ function generate_image($img)
     // Initialize the OpenAI client and set the API key
     $client = OpenAI::client($yourApiKey);
 
+    $size = get_option('SMT_GeCo_AI_setting_img_size', '512x512');
+
     // operate the task
     if (isset($img)) {
         try {
             $img_response = $client->images()->create([
                 'prompt' => $img,
                 'n' => 1,
-                'size' => '256x256',
+                'size' => $size,
                 'response_format' => 'url',
             ]);
         } catch (Throwable $th) {
@@ -266,6 +268,7 @@ function SMT_GeCo_AI_settings_init()
     // register a new setting for the custom settings page
     register_setting('SMT_GeCo_AI_custom_settings_page', 'SMT_GeCo_AI_setting_api_key');
     register_setting('SMT_GeCo_AI_custom_settings_page', 'SMT_GeCo_AI_setting_model');
+    register_setting('SMT_GeCo_AI_custom_settings_page', 'SMT_GeCo_AI_setting_img_size');
     register_setting('SMT_GeCo_AI_custom_settings_page', 'SMT_GeCo_AI_setting_token');
     register_setting('SMT_GeCo_AI_custom_settings_page', 'SMT_GeCo_AI_setting_prompt');
 
@@ -290,6 +293,14 @@ function SMT_GeCo_AI_settings_init()
         'SMT_GeCo_AI_model',
         'Model AI Used',
         'SMT_GeCo_AI_settings_field_model_callback',
+        'SMT_GeCo_AI_custom_settings_page',
+        'SMT_GeCo_AI_settings_section'
+    );
+
+    add_settings_field(
+        'SMT_GeCo_AI_img_size',
+        'Set Image Size',
+        'SMT_GeCo_AI_settings_img_size_callback',
         'SMT_GeCo_AI_custom_settings_page',
         'SMT_GeCo_AI_settings_section'
     );
@@ -343,7 +354,6 @@ function SMT_GeCo_AI_custom_settings_page_callback()
             ?>
         </form>
     </div>
-
 <?php
 }
 
@@ -400,13 +410,35 @@ function SMT_GeCo_AI_settings_field_model_callback()
 <?php
 }
 
+function SMT_GeCo_AI_settings_img_size_callback()
+{
+    $img_size = get_option('SMT_GeCo_AI_setting_img_size', '512x512');
+?>
+    <label>
+        <input type="radio" name="SMT_GeCo_AI_setting_img_size" value="256x256" <?php checked($img_size, '256x256'); ?>>
+        256x256 pixels
+    </label>
+    <br>
+    <label>
+        <input type="radio" name="SMT_GeCo_AI_setting_img_size" value="512x512" <?php checked($img_size, '512x512'); ?>>
+        512x512 pixels
+    </label>
+    <label>
+        <input type="radio" name="SMT_GeCo_AI_setting_img_size" value="1024x1024" <?php checked($img_size, '1024x1024'); ?>>
+        1024x1024 pixels
+    </label>
+    <p>Choose image size to use</p>
+    <p>If this field not set, default value will be <b>512x512</b> pixels</p>
+<?php
+}
+
 function SMT_GeCo_AI_settings_token_callback()
 {
     $token = get_option('SMT_GeCo_AI_setting_token', 1000);
 ?>
     <input type="number" name="SMT_GeCo_AI_setting_token" placeholder="Ex: 1000" value="<?php echo isset($token) ? esc_attr($token) : ''; ?>">
     <p>Select how much token want to be used, <a href="https://platform.openai.com/docs/introduction/tokens">Learn More</a></p>
-    <p>If this field not set, default value will be: 1000</p>
+    <p>If this field not set, default value will be: <b>1000</b></p>
     <p>Note: <b>Maximal token for each model is different, please refer this <a href="https://platform.openai.com/docs/models/gpt-4">guide.</a></b></p>
 <?php
 }
@@ -438,7 +470,9 @@ function SMT_GeCo_AI_settings_field_prompt_callback()
         </tr>
     </table>
     <p>Example:</p>
-    <i><p>"Buatkanlah saya artikel menggunakan bahasa [bahasa] dan artikelnya mengenai [keyword]. Dengan panjang paragraf [paragraf]"</p></i>
+    <i>
+        <p>"Buatkanlah saya artikel menggunakan bahasa [bahasa] dan artikelnya mengenai [keyword]. Dengan panjang paragraf [paragraf]"</p>
+    </i>
     <p>Note:</p>
     <p><b>Insert parameter without the value in parameter, so if you want use "[bahasa]" just put "[bahasa]".</b></p>
     <p>For the value in parameter will be inputed in address bar</p>
