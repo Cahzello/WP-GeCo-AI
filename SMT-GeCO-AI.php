@@ -9,23 +9,12 @@
  * Requires PHP: 8.1
  * Author: Rizky Rasya
  * Author URI: https://github.com/Cahzello
- * License: GPLv2
- * License URI: https://www.gnu.org/licenses/gpl-2.0.html
+ * License: 
+ * License URI:
  * Text Domain: SMT-GeCo-AI
  * Domain Path: /languages
  *
- * SMT GeCo AI is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * any later version.
- *
- * SMT GeCo AI is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with SMT GeCo AI. If not, see <https://www.gnu.org/licenses/>.
+
  *
  */
 
