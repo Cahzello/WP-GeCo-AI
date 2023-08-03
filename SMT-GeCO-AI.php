@@ -110,18 +110,21 @@ function generate_content($keyword, $bahasa, $paragraf)
     // choose AI Models
     $model_field_value = get_option('SMT_GeCo_AI_setting_model', 'gpt-3.5-turbo');
 
+    $token = get_option('SMT_GeCo_AI_setting_token', 1000);
+    $int_token = intval($token);
+
     try {
         // create async call
         $pool = Pool::create();
 
         $pool
-            ->add(function () use ($client, $messages, $model_field_value) {
+            ->add(function () use ($client, $messages, $model_field_value, $int_token) {
                 // code to async
                 $response = $client->chat()->create([
                     'model' => $model_field_value,
                     'messages' => $messages,
                     'temperature' => 1.2,
-                    'max_tokens' => 3000
+                    'max_tokens' => $int_token,
                 ]);
 
                 return $response;
@@ -132,7 +135,6 @@ function generate_content($keyword, $bahasa, $paragraf)
             })
             ->catch(function ($exception) {
                 // When an exception is thrown from within a process, it's caught and passed here.
-                // wp_die('Error Generating Response ' . $exception, 'Error');
                 add_action('admin_notices', function () use ($exception) {
                     echo "<div class='notice notice-info is-dismissible'><p> {$exception} </p></div>";
                 });
@@ -264,6 +266,7 @@ function SMT_GeCo_AI_settings_init()
     // register a new setting for the custom settings page
     register_setting('SMT_GeCo_AI_custom_settings_page', 'SMT_GeCo_AI_setting_api_key');
     register_setting('SMT_GeCo_AI_custom_settings_page', 'SMT_GeCo_AI_setting_model');
+    register_setting('SMT_GeCo_AI_custom_settings_page', 'SMT_GeCo_AI_setting_token');
     register_setting('SMT_GeCo_AI_custom_settings_page', 'SMT_GeCo_AI_setting_prompt');
 
     // register a new section in the custom settings page
@@ -287,6 +290,14 @@ function SMT_GeCo_AI_settings_init()
         'SMT_GeCo_AI_model',
         'Model AI Used',
         'SMT_GeCo_AI_settings_field_model_callback',
+        'SMT_GeCo_AI_custom_settings_page',
+        'SMT_GeCo_AI_settings_section'
+    );
+
+    add_settings_field(
+        'SMT_GeCo_AI_token',
+        'Set Max Token',
+        'SMT_GeCo_AI_settings_token_callback',
         'SMT_GeCo_AI_custom_settings_page',
         'SMT_GeCo_AI_settings_section'
     );
@@ -332,6 +343,7 @@ function SMT_GeCo_AI_custom_settings_page_callback()
             ?>
         </form>
     </div>
+
 <?php
 }
 
@@ -388,12 +400,23 @@ function SMT_GeCo_AI_settings_field_model_callback()
 <?php
 }
 
+function SMT_GeCo_AI_settings_token_callback()
+{
+    $token = get_option('SMT_GeCo_AI_setting_token', 1000);
+?>
+    <input type="number" name="SMT_GeCo_AI_setting_token" placeholder="Ex: 1000" value="<?php echo isset($token) ? esc_attr($token) : ''; ?>">
+    <p>Select how much token want to be used, <a href="https://platform.openai.com/docs/introduction/tokens">Learn More</a></p>
+    <p>If this field not set, default value will be: 1000</p>
+    <p>Note: <b>Maximal token for each model is different, please refer this <a href="https://platform.openai.com/docs/models/gpt-4">guide.</a></b></p>
+<?php
+}
+
 function SMT_GeCo_AI_settings_field_prompt_callback()
 {
+    $placeholder = "Ex: Please make me an article with the keyword [keyword] and using [bahasa] language with minimun paraghraph is [paragraf].";
     $prompt = get_option('SMT_GeCo_AI_setting_prompt');
 ?>
-    <textarea cols="65" type="text" name="SMT_GeCo_AI_setting_prompt"><?php echo isset($prompt) ? esc_attr($prompt) : ''; ?>
-    </textarea>
+    <textarea cols="65" rows="4" type="text" name="SMT_GeCo_AI_setting_prompt" placeholder="<?php echo $placeholder ?>"><?php echo isset($prompt) ? esc_attr($prompt) : ''; ?></textarea>
     <p>Optional input if you want a unique case for prompt.</p>
     <p>the parameter available for use is:</p>
     <table border="1">
@@ -415,7 +438,7 @@ function SMT_GeCo_AI_settings_field_prompt_callback()
         </tr>
     </table>
     <p>Example:</p>
-    <p>"Buatkanlah saya artikel menggunakan bahasa [bahasa] dan artikelnya mengenai [keyword]. Dengan panjang paragraf [paragraf]"</p>
+    <i><p>"Buatkanlah saya artikel menggunakan bahasa [bahasa] dan artikelnya mengenai [keyword]. Dengan panjang paragraf [paragraf]"</p></i>
     <p>Note:</p>
     <p><b>Insert parameter without the value in parameter, so if you want use "[bahasa]" just put "[bahasa]".</b></p>
     <p>For the value in parameter will be inputed in address bar</p>
