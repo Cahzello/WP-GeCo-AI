@@ -14,15 +14,12 @@
  * Text Domain: SMT-GeCo-AI
  * Domain Path: /languages
  *
-
  *
  */
 
 // Include the Composer autoloader
 require __DIR__ . '/vendor/autoload.php';
-require 'function/generate_message.php';
 
-use Spatie\Async;
 use Spatie\Async\Pool;
 
 // function for creating prompt messages
@@ -109,27 +106,27 @@ function generate_content($keyword, $bahasa, $paragraf)
         $pool = Pool::create();
 
         $pool
-            ->add(function () use ($client, $messages, $model_field_value, $int_token) {
-                // code to async
-                $response = $client->chat()->create([
-                    'model' => $model_field_value,
-                    'messages' => $messages,
-                    'temperature' => 1.2,
-                    'max_tokens' => $int_token,
-                ]);
+        ->add(function () use ($client, $messages, $model_field_value, $int_token) {
+            // code to async
+            $response = $client->chat()->create([
+                'model' => $model_field_value,
+                'messages' => $messages,
+                'temperature' => 1.2,
+                'max_tokens' => $int_token,
+            ]);
 
-                return $response;
-            })
-            ->then(function ($output) use (&$response) {
-                // On success, `$output` is returned by the process or callable you passed to the queue.
-                $response = $output;
-            })
-            ->catch(function ($exception) {
-                // When an exception is thrown from within a process, it's caught and passed here.
-                add_action('admin_notices', function () use ($exception) {
-                    echo "<div class='notice notice-info is-dismissible'><p> {$exception} </p></div>";
-                });
+            return $response;
+        })
+        ->then(function ($output) use (&$response) {
+            // On success, `$output` is returned by the process or callable you passed to the queue.
+            $response = $output;
+        })
+        ->catch(function ($exception) {
+            // When an exception is thrown from within a process, it's caught and passed here.
+            add_action('admin_notices', function () use ($exception) {
+                echo "<div class='notice notice-info is-dismissible'><p> {$exception} </p></div>";
             });
+        }); 
         $pool->wait();
 
         // Extract the response content from the API response
@@ -152,7 +149,10 @@ function generate_content($keyword, $bahasa, $paragraf)
         }
     } catch (Exception $e) {
         // Handle exceptions here or log the error for debugging
-        wp_die("Error: Unable to generate content. Please try again later. Error message: <b> " . $e->getMessage() . "</b>", 'chatgpt err');
+        // wp_die("Error: Unable to generate content. Please try again later. Error message: <b> " . $e->getMessage() . "</b>", 'chatgpt err');
+        add_action('admin_notices', function () use ($e) {
+            echo "<div class='notice notice-info is-dismissible'><p> {$e} </p></div>";
+        });
     }
 
     //return value
@@ -182,7 +182,6 @@ function make_post()
     // Check if the URL has query parameters
     if (isset($url_components['query'])) {
         parse_str($url_components['query'], $params);
-
 
         // Check if the 'keyword' parameter and api key is exists
         if (isset($params['keyword'])) {
