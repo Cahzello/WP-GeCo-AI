@@ -19,6 +19,7 @@
 
 // Include the Composer autoloader
 require __DIR__ . '/vendor/autoload.php';
+require __DIR__ . '/functions/image_generate.php';
 
 use Spatie\Async\Pool;
 
@@ -48,38 +49,6 @@ function generate_message($keyword, $bahasa, $paragraf)
     }
 
     return $message;
-}
-
-function generate_image($img)
-{
-    // get api key from wp db
-    $yourApiKey = get_option('SMT_GeCo_AI_setting_api_key');
-
-    // Initialize the OpenAI client and set the API key
-    $client = OpenAI::client($yourApiKey);
-
-    $size = get_option('SMT_GeCo_AI_setting_img_size', '512x512');
-
-    // operate the task
-    if (isset($img)) {
-        try {
-            $img_response = $client->images()->create([
-                'prompt' => $img,
-                'n' => 1,
-                'size' => $size,
-                'response_format' => 'url',
-            ]);
-        } catch (Throwable $th) {
-            // throw $th;
-            add_action('admin_notices', function () use ($th) {
-                echo "<div class='notice notice-info is-dismissible'><p> {$th} </p></div>";
-            });
-        }
-
-        $image = $img_response->data[0]->url;
-
-        return $image;
-    }
 }
 
 
@@ -208,7 +177,8 @@ function make_post()
             $generated_content = generate_content($params['keyword'], $params['bahasa'], $params['paragraf']);
 
             // create image structure to be input to the post
-            $image = generate_image($params['keyword']);
+            // $image = generate_image($params['keyword']);
+            $image = image_generate($params['keyword']);
             $image_structure = "<img class='alignleft' src='" . $image . "' /> ";
 
             // insert data to array
