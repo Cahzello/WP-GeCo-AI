@@ -93,12 +93,16 @@ function generate_content($keyword, $bahasa, $paragraf)
         $decodedJson = json_decode($jsonData, false, 512, JSON_THROW_ON_ERROR);
 
         // write log file
-        $path_to_plugin = "../wp-content/plugins/SMT-GeCoAI/log/";
-        $myfile = fopen($path_to_plugin . "response.json", "a") or die("Unable to open file!");
-        $txt = $hasil;
-        fwrite($myfile, PHP_EOL);
-        fwrite($myfile, $txt);
-        fclose($myfile);
+        $debug = true;
+        if($debug)
+        {
+            $path_to_plugin = "../wp-content/plugins/SMT-GeCoAI/log/";
+            $myfile = fopen($path_to_plugin . "response.json", "a") or die("Unable to open file!");
+            $txt = $hasil;
+            fwrite($myfile, PHP_EOL);
+            fwrite($myfile, $txt);
+            fclose($myfile);
+        }
 
         // handle error when the json response didn't match the schema
         if (!$hasil) {
