@@ -93,20 +93,23 @@ function generate_content($keyword, $bahasa, $paragraf)
         $decodedJson = json_decode($jsonData, false, 512, JSON_THROW_ON_ERROR);
 
         // write log file
-        $path_to_plugin = plugin_dir_path(__FILE__) . 'log/';
-        $txt = $hasil . PHP_EOL;
-        file_put_contents($path_to_plugin . "response.json", $txt, FILE_APPEND);
+        $path_to_plugin = "../wp-content/plugins/SMT-GeCoAI/log/";
+        $myfile = fopen($path_to_plugin . "response.json", "a") or die("Unable to open file!");
+        $txt = $hasil;
+        fwrite($myfile, PHP_EOL);
+        fwrite($myfile, $txt);
+        fclose($myfile);
 
         // handle error when the json response didn't match the schema
         if (!$hasil) {
-            throw new Exception('Something Went Wrong, Please Refresh This Page Again.');
+            $actual_link = (empty($_SERVER['HTTPS']) ? 'http' : 'https') . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
+            wp_die('Something Went Wrong, Please Refresh This Page Again. <a href="' . $actual_link . '">Refresh</a>', 'err_json');
         }
     } catch (Exception $e) {
         // Handle exceptions here or log the error for debugging
-        error_log($e->getMessage());
-        $error_message = "<div class='notice notice-info is-dismissible'><p> Something went wrong. </p></div>";
-        add_action('admin_notices', function () use ($error_message) {
-            wp_die($error_message, 'error');
+        // wp_die("Error: Unable to generate content. Please try again later. Error message: <b> " . $e->getMessage() . "</b>", 'chatgpt err');
+        add_action('admin_notices', function () use ($e) {
+            echo "<div class='notice notice-info is-dismissible'><p> {$e} </p></div>";
         });
     }
 
@@ -414,6 +417,4 @@ function SMT_GeCo_AI_settings_field_prompt_callback()
 
 <?php
 }
-
-
 

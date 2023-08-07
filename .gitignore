@@ -2,6 +2,3 @@
 .env
 vendor
 
-# Ignore log file
-response.json
-
