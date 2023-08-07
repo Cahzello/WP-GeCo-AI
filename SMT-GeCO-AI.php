@@ -93,7 +93,7 @@ function generate_content($keyword, $bahasa, $paragraf)
         $decodedJson = json_decode($jsonData, false, 512, JSON_THROW_ON_ERROR);
 
         // write log file
-        $debug = true;
+        $debug = false;
         if($debug)
         {
             $path_to_plugin = "../wp-content/plugins/SMT-GeCoAI/log/";
