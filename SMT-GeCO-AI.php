@@ -18,38 +18,27 @@
  */
 
 // Include the Composer autoloader
+
 require __DIR__ . '/vendor/autoload.php';
 require __DIR__ . '/functions/image_generate.php';
+require __DIR__ . '/functions/generate_message.php';
 
 use Spatie\Async\Pool;
 
-// function for creating prompt messages
-function generate_message($keyword, $bahasa, $paragraf)
-{
-    $message = [
-        ['role' => 'system', 'content' => 'Do not include any explanations, only provide a  RFC8259 compliant JSON response, without Duplicate object key, following this format without deviation.'],
-        ['role' => 'system', 'content' => 'JSON format used: { "Title": " ", "Meta": " ", "Content": " " }'],
-        ['role' => 'system', 'content' => 'When creating a new paragrah use "\n\n" instead inserting a new line manually'],
-    ];
+/**
+ * Register SMT_GeCo_AI_settings_init to the admin_init action hook
+ */
+add_action('admin_init', 'SMT_GeCo_AI_settings_init');
 
-    // add custom prompt if user input from the settings
-    if (get_option('SMT_GeCo_AI_setting_prompt')) {
-        $prompt = get_option('SMT_GeCo_AI_setting_prompt');
+/**
+ * Add the custom settings page to the admin menu
+ */
+add_action('admin_menu', 'SMT_GeCo_AI_add_custom_settings_page');
 
-        $output = str_replace(['[keyword]', '[bahasa]'], [$keyword, $bahasa], $prompt);
-
-        $custom_prompt = ['role' => 'user', 'content' => $output];
-
-        $message[] = $custom_prompt;
-    } else {
-
-        $custom_prompt = ['role' => 'user', 'content' => 'Buatlah artikel dengan rincian yang komprehensif,' . $paragraf . ' paragraf, 1 paragraf mengandung 6 kalimat. Dengan berisikan judul, meta, dan konten yang unik dengan kata kunci ' . $keyword . '. Dan menggunakan bahasa: ' . $bahasa];
-
-        $message[] = $custom_prompt;
-    }
-
-    return $message;
-}
+/**
+ * Run make_post function to create post
+ */
+add_action('admin_init', 'make_post');
 
 
 // Define the function that generates content using the ChatGPT API
@@ -93,7 +82,7 @@ function generate_content($keyword, $bahasa, $paragraf)
         ->catch(function ($exception) {
             // When an exception is thrown from within a process, it's caught and passed here.
             add_action('admin_notices', function () use ($exception) {
-                echo "<div class='notice notice-info is-dismissible'><p> {$exception} </p></div>";
+                echo "<div class='notice notice-error is-dismissible'><p> {$exception} </p></div>";
             });
         }); 
         $pool->wait();
@@ -104,23 +93,21 @@ function generate_content($keyword, $bahasa, $paragraf)
         $decodedJson = json_decode($jsonData, false, 512, JSON_THROW_ON_ERROR);
 
         // write log file
-        $path_to_plugin = "../wp-content/plugins/SMT-GeCoAI/log/";
-        $myfile = fopen($path_to_plugin . "response.json", "a") or die("Unable to open file!");
-        $txt = $hasil;
-        fwrite($myfile, PHP_EOL);
-        fwrite($myfile, $txt);
-        fclose($myfile);
+        $path_to_plugin = plugin_dir_path(__FILE__) . 'log/';
+        $txt = $hasil . PHP_EOL;
+        file_put_contents($path_to_plugin . "response.json", $txt, FILE_APPEND);
 
         // handle error when the json response didn't match the schema
         if (!$hasil) {
             $actual_link = (empty($_SERVER['HTTPS']) ? 'http' : 'https') . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
-            wp_die('Something Went Wrong, Please Refresh This Page Again. <a href="' . $actual_link . '">Refresh</a>', 'err_json');
+            throw new Exception('Something Went Wrong, Please Refresh This Page Again.');
         }
     } catch (Exception $e) {
         // Handle exceptions here or log the error for debugging
-        // wp_die("Error: Unable to generate content. Please try again later. Error message: <b> " . $e->getMessage() . "</b>", 'chatgpt err');
-        add_action('admin_notices', function () use ($e) {
-            echo "<div class='notice notice-info is-dismissible'><p> {$e} </p></div>";
+        error_log($e->getMessage());
+        $error_message = "<div class='notice notice-info is-dismissible'><p> Something went wrong. </p></div>";
+        add_action('admin_notices', function () use ($error_message) {
+            wp_die($error_message, 'error');
         });
     }
 
@@ -130,6 +117,10 @@ function generate_content($keyword, $bahasa, $paragraf)
 
 function make_post()
 {
+    // Get the 'keyword' value from the URL
+    $actual_link = (empty($_SERVER['HTTPS']) ? 'http' : 'https') . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
+    $url_components = parse_url($actual_link);
+
     // Check if API key is present or not (not checking is api key valid or not but if present or not)
     add_action('admin_notices', function () {
         if (!get_option('SMT_GeCo_AI_setting_api_key')) {
@@ -140,13 +131,9 @@ function make_post()
                         You haven\'t put your API key in settings, go to plugin settings to put your API key.
                         <a href="' . $url . '">Go to settings</a>
                     </p>
-                </div>';
+            </div>';
         }
-    });
-
-    // Get the 'keyword' value from the URL
-    $actual_link = (empty($_SERVER['HTTPS']) ? 'http' : 'https') . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
-    $url_components = parse_url($actual_link);
+    });    
 
     // Check if the URL has query parameters
     if (isset($url_components['query'])) {
@@ -165,6 +152,7 @@ function make_post()
                 $params['paragraf'] = 2;
             }
 
+            // stop user from generating content where api key is not present
             if (!get_option('SMT_GeCo_AI_setting_api_key')) {
                 $url = get_dashboard_url() . 'admin.php?page=SMT_GeCo_AI_custom_settings_page';
                 wp_die(
@@ -177,7 +165,6 @@ function make_post()
             $generated_content = generate_content($params['keyword'], $params['bahasa'], $params['paragraf']);
 
             // create image structure to be input to the post
-            // $image = generate_image($params['keyword']);
             $image = image_generate($params['keyword']);
             $image_structure = "<img class='alignleft' src='" . $image . "' /> ";
 
@@ -316,16 +303,6 @@ function SMT_GeCo_AI_custom_settings_page_callback()
 }
 
 /**
- * Register SMT_GeCo_AI_settings_init to the admin_init action hook
- */
-add_action('admin_init', 'SMT_GeCo_AI_settings_init');
-
-/**
- * Add the custom settings page to the admin menu
- */
-add_action('admin_menu', 'SMT_GeCo_AI_add_custom_settings_page');
-
-/**
  * Callback functions
  */
 
@@ -343,7 +320,7 @@ function SMT_GeCo_AI_settings_field_callback()
     $setting = get_option('SMT_GeCo_AI_setting_api_key');
     // Output the field
 ?>
-    <textarea cols="60" type="text" name="SMT_GeCo_AI_setting_api_key"><?php echo isset($setting) ? esc_attr($setting) : ''; ?>
+    <textarea require cols="60" type="text" name="SMT_GeCo_AI_setting_api_key"><?php echo isset($setting) ? esc_attr($setting) : ''; ?>
     </textarea>
     <p>Put your OpenAI api key in text field above. <a href="https://platform.openai.com/account/api-keys">Click here to get api key.</a></p>
 
@@ -439,5 +416,5 @@ function SMT_GeCo_AI_settings_field_prompt_callback()
 <?php
 }
 
-// run make_post function
-add_action('admin_init', 'make_post');
+
+
