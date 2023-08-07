@@ -99,7 +99,6 @@ function generate_content($keyword, $bahasa, $paragraf)
 
         // handle error when the json response didn't match the schema
         if (!$hasil) {
-            $actual_link = (empty($_SERVER['HTTPS']) ? 'http' : 'https') . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
             throw new Exception('Something Went Wrong, Please Refresh This Page Again.');
         }
     } catch (Exception $e) {
