@@ -71,13 +71,13 @@ function generate_content($keyword, $bahasa, $paragraf)
                 'messages' => $messages,
                 'temperature' => 1.2,
                 'max_tokens' => $int_token,
-            ]);
-
+            ]);            
             return $response;
         })
         ->then(function ($output) use (&$response) {
             // On success, `$output` is returned by the process or callable you passed to the queue.
             $response = $output;
+            var_dump($response);
         })
         ->catch(function ($exception) {
             // When an exception is thrown from within a process, it's caught and passed here.
@@ -88,6 +88,7 @@ function generate_content($keyword, $bahasa, $paragraf)
         $pool->wait();
 
         // Extract the response content from the API response
+
         $hasil = $response->choices[0]->message->content;
         $jsonData = preg_replace('/[\x00-\x1F]/u', '', $hasil);
         $decodedJson = json_decode($jsonData, false, 512, JSON_THROW_ON_ERROR);
@@ -370,6 +371,7 @@ function SMT_GeCo_AI_settings_img_size_callback()
     </label>
     <p>Choose image size to use</p>
     <p>If this field not set, default value will be <b>512x512</b> pixels</p>
+    <p><?php echo get_option('SMT_GeCo_AI_setting_img_size', '512x512'); ?></p>
 <?php
 }
 

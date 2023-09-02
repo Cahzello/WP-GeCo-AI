@@ -9,11 +9,12 @@ $size = get_option('SMT_GeCo_AI_setting_img_size', '512x512');
 function image_generate($keyword)
 {
     global $client;
+    global $size;
 
     $response = $client->images()->create([
         'prompt' => $keyword,
         'n' => 1,
-        'size' => '512x512',
+        'size' => $size,
         'response_format' => 'b64_json',
     ]);
     
