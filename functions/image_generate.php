@@ -6,13 +6,13 @@ $client = OpenAI::client($apikey);
 
 $size = get_option('SMT_GeCo_AI_setting_img_size', '512x512');
 
-function image_generate($keyword)
+function image_generate($keyword, $bahasa)
 {
     global $client;
     global $size;
 
     $response = $client->images()->create([
-        'prompt' => $keyword,
+        'prompt' => $keyword . 'in' . $bahasa,
         'n' => 1,
         'size' => $size,
         'response_format' => 'b64_json',

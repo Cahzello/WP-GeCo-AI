@@ -19,7 +19,7 @@ function generate_message($keyword, $bahasa, $paragraf)
         $message[] = $custom_prompt;
     } else {
 
-        $custom_prompt = ['role' => 'user', 'content' => 'Buatlah artikel dengan rincian yang komprehensif,' . $paragraf . ' paragraf, 1 paragraf mengandung 6 kalimat. Dengan berisikan judul, meta, dan konten yang unik dengan kata kunci ' . $keyword . '. Dan menggunakan bahasa: ' . $bahasa];
+        $custom_prompt = ['role' => 'user', 'content' => 'Buatlah artikel dengan rincian yang komprehensif, sebanyak' . $paragraf . ' paragraf, 1 paragraf mengandung 6 kalimat. Dengan berisikan judul, meta, dan konten yang unik dengan kata kunci ' . $keyword . '. Dan menggunakan bahasa: ' . $bahasa];
 
         $message[] = $custom_prompt;
     }

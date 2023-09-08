@@ -63,7 +63,6 @@ function generate_content($keyword, $bahasa, $paragraf)
             ->then(function ($output) use (&$response) {
                 // On success, `$output` is returned by the process or callable you passed to the queue.
                 $response = $output;
-                var_dump($response);
             })
             ->catch(function ($exception) {
                 // When an exception is thrown from within a process, it's caught and passed here.
@@ -157,7 +156,7 @@ function make_post()
             $generated_content = generate_content($params['keyword'], $params['bahasa'], $params['paragraf']);
 
             // create image structure to be input to the post
-            $image = image_generate($params['keyword']);
+            $image = image_generate($params['keyword'], $params['bahasa']);
             $image_structure = "<img class='alignleft' src='" . $image . "' /> ";
 
             // insert data to array
