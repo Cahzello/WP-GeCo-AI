@@ -76,7 +76,7 @@ function generate_content($keyword, $bahasa, $paragraf)
 
         $hasil = $response->choices[0]->message->content;
         $jsonData = preg_replace('/[\x00-\x1F]/u', '', $hasil);
-        $decodedJson = json_decode($jsonData, false, 512, JSON_THROW_ON_ERROR);
+        $decodedJson = json_decode($jsonData, false, 4096);
 
         // write log file
         $debug = false;
@@ -97,9 +97,8 @@ function generate_content($keyword, $bahasa, $paragraf)
     } catch (Exception $e) {
         // Handle exceptions here or log the error for debugging
         // wp_die("Error: Unable to generate content. Please try again later. Error message: <b> " . $e->getMessage() . "</b>", 'chatgpt err');
-        add_action('admin_notices', function () use ($e) {
-            echo "<div class='notice notice-info is-dismissible'><p> {$e} </p></div>";
-        });
+        $actual_link = (empty($_SERVER['HTTPS']) ? 'http' : 'https') . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
+        wp_die('Something Went Wrong, Please Refresh This Page Again. <a href="' . $actual_link . '">Refresh</a>', 'err_json');
     }
 
     //return value

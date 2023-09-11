@@ -12,7 +12,7 @@ function image_generate($keyword, $bahasa)
     global $size;
 
     $response = $client->images()->create([
-        'prompt' => $keyword . 'in' . $bahasa,
+        'prompt' => 'Explain ' . $keyword . ' for article image.',
         'n' => 1,
         'size' => $size,
         'response_format' => 'b64_json',
