@@ -6,18 +6,32 @@ $client = OpenAI::client($apikey);
 
 $size = get_option('SMT_GeCo_AI_setting_img_size', '512x512');
 
-function image_generate($keyword, $bahasa)
+function image_generate($keyword)
 {
     global $client;
     global $size;
 
+    $keyword = strtolower($keyword); // Convert the keyword to lowercase for consistency
+
+    // Create an array of keyword synonyms or related words
+    $keywordSynonyms = [
+        'mobil' => 'car',
+    ];
+    
+    // Check if the keyword exists in the synonyms array and use the corresponding English word
+    if (isset($keywordSynonyms[$keyword])) {
+        $englishKeyword = $keywordSynonyms[$keyword];
+    } else {
+        $englishKeyword = ucfirst($keyword);
+    }
+
     $response = $client->images()->create([
-        'prompt' => 'Explain ' . $keyword . ' for article image.',
+        'prompt' => 'Please Generate an image illustrating the concept of "' . ucfirst($englishKeyword) . '" for an article.',
         'n' => 1,
         'size' => $size,
         'response_format' => 'b64_json',
     ]);
-    
+
     if (isset($response->data[0]->b64_json)) {
         // Decode the base64 image data
         $binary_image_data = base64_decode($response->data[0]->b64_json);
@@ -37,7 +51,7 @@ function image_generate($keyword, $bahasa)
             // To block any possible exploits, consider increasing the compression level
             imagepng($im, $img_file, 0);
 
-            
+
             // Output the uploaded image URL
             $uploaded_image_url = $upload_dir['url'] . '/' . basename($img_file);
 

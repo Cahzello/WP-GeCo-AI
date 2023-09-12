@@ -155,7 +155,7 @@ function make_post()
             $generated_content = generate_content($params['keyword'], $params['bahasa'], $params['paragraf']);
 
             // create image structure to be input to the post
-            $image = image_generate($params['keyword'], $params['bahasa']);
+            $image = image_generate($params['keyword']);
             $image_structure = "<img class='alignleft' src='" . $image . "' /> ";
 
             // insert data to array
