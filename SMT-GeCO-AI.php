@@ -105,6 +105,43 @@ function generate_content($keyword, $bahasa, $paragraf)
     return $decodedJson;
 }
 
+function make_shortcode()
+{
+    $pages = get_pages();
+
+    // The ID of the page where you want to add the shortcode.
+    $page_id = $pages[0]->ID; // Replace with your page ID.
+
+    // Get the content of the page using its ID.
+    $page_content = get_post_field('post_content', $page_id);
+
+    // Add the shortcode to the page content.
+    $page_content_with_shortcode = do_shortcode('[smt_slider slider=2]') . $page_content;
+
+    // Update the page content with the shortcode.
+    $update_post_args = array(
+        'ID'           => $page_id,
+        'post_content' => $page_content_with_shortcode,
+    );
+
+    $result = wp_update_post($update_post_args);
+
+    if (is_wp_error($result)) {
+        // Handle the error here.
+        $err_msg = $result->get_error_message();
+        add_action('admin_notices', function () use ($err_msg) {
+            echo '<div class="notice notice-info is-dismissible"><p>' . esc_html($err_msg) . '</a> </p></div>';
+        });
+
+    } else {
+        // Update was successful.
+        add_action('admin_notices', function () {
+            echo '<div class="notice notice-info is-dismissible"><p> Shortcode added successfully. </a> </p></div>';
+        });
+        
+    }
+}
+
 function make_post()
 {
     // Get the 'keyword' value from the URL
@@ -193,5 +230,6 @@ function make_post()
         }
     } else {
         // do nothing
+
     }
 }
